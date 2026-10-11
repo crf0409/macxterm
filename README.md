@@ -88,6 +88,7 @@ ssh -i ~/.ssh/id_ed25519 -N \
 | `Vendor/FreeRDP` | FreeRDP 许可证与版本/校验清单；头文件和静态库由锁定源码本地生成 |
 | `Sources/CLibSSH2` | libssh2 1.11.1 官方标签源码及许可证 |
 | `Tests/MacXTermCoreTests` | Swift Testing 单元与真实 OpenSSH 集成测试 |
+| `Tests/MacXTermAppTests` | 原生终端视图与重连输入回归测试 |
 | `IntegrationTest` | 本地/容器测试服务 |
 | `Config` | 沙盒、Info.plist、签名及归档配置 |
 

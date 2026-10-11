@@ -46,6 +46,7 @@ let package = Package(
                 .copy("Resources/AppIcon.icns"),
             ]),
         .testTarget(name: "MacXTermCoreTests", dependencies: ["MacXTermCore"]),
+        .testTarget(name: "MacXTermAppTests", dependencies: ["MacXTermApp"]),
     ],
     swiftLanguageModes: [.v6]
 )

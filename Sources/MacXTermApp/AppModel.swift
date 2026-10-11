@@ -167,8 +167,7 @@ import UniformTypeIdentifiers
         reconnect(tab)
     }
     func reconnect(_ tab: TerminalSession) {
-        tab.disconnect()
-        tab.state = .connecting
+        tab.prepareForConnection()
         tab.status = "正在连接 \(tab.host.endpoint)…"
         let generation = tab.connectionGeneration
         let service = SSHSessionService()
@@ -180,6 +179,7 @@ import UniformTypeIdentifiers
                 try Task.checkCancellation()
                 try await service.openTerminal(columns: tab.columns, rows: tab.rows)
                 try Task.checkCancellation()
+                guard tab.connectionGeneration == generation else { throw CancellationError() }
                 tab.state = .connected
                 tab.synchronizeTerminalSize()
                 tab.status = tab.host.endpoint
@@ -189,7 +189,8 @@ import UniformTypeIdentifiers
                 while !Task.isCancelled {
                     let (data, eof) = try await service.readTerminal()
                     try Task.checkCancellation()
-                    if !data.isEmpty { tab.feed(data) }
+                    guard tab.connectionGeneration == generation else { throw CancellationError() }
+                    if !data.isEmpty { tab.feed(data, from: generation) }
                     if eof {
                         tab.state = .disconnected
                         tab.status = "远端会话已结束，可重新连接"
@@ -208,8 +209,7 @@ import UniformTypeIdentifiers
                 }
             }
             if tab.connectionGeneration == generation {
-                tab.writer?.finish()
-                tab.writerTask?.cancel()
+                tab.stopWriter()
             }
             service.cancel()
         }

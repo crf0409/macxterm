@@ -42,6 +42,13 @@ enum ConnectionState: String {
     @ObservationIgnored private var pending = Data()
     init(host: HostProfile) { self.host = host }
     var selectedEntry: RemoteEntry? { entries.first { $0.path == selectedFile } }
+    func prepareForConnection() {
+        disconnect()
+        pending.removeAll()
+        title = ""
+        terminal?.resetForConnection()
+        state = .connecting
+    }
     func terminalView(theme: String, onFocus: @escaping () -> Void, dropTarget: SessionTabDropTarget?) -> TerminalView {
         if let terminal {
             terminal.onFocus = onFocus
@@ -90,15 +97,18 @@ enum ConnectionState: String {
             defer { if self.connectionGeneration == generation { self.resizeTask = nil } }
             while !Task.isCancelled && self.connectionGeneration == generation && self.state == .connected {
                 await Task.yield()
+                guard !Task.isCancelled, self.connectionGeneration == generation else { return }
                 let size = (self.columns, self.rows)
                 do { try await service.resize(columns: size.0, rows: size.1) }
                 catch { return }
+                guard !Task.isCancelled, self.connectionGeneration == generation else { return }
                 self.sentColumns = size.0; self.sentRows = size.1
                 if self.columns == size.0 && self.rows == size.1 { return }
             }
         }
     }
-    func feed(_ data: Data) {
+    func feed(_ data: Data, from generation: UUID) {
+        guard connectionGeneration == generation, state == .connected else { return }
         if let terminal {
             terminal.feed(byteArray: Array(data)[...])
         } else {
@@ -107,18 +117,32 @@ enum ConnectionState: String {
         }
     }
     func startWriter(_ service: SSHSessionService) {
+        stopWriter()
+        let generation = connectionGeneration
         let stream = AsyncStream<Data>(bufferingPolicy: .unbounded) { self.writer = $0 }
         writerTask = Task { [weak self] in
             do {
                 for await data in stream {
                     try Task.checkCancellation()
+                    guard let self, self.connectionGeneration == generation, self.state == .connected else { return }
                     try await service.writeTerminal(data)
                 }
-            } catch { if !Task.isCancelled { self?.status = error.localizedDescription } }
+            } catch {
+                if !Task.isCancelled, let self, self.connectionGeneration == generation {
+                    self.status = error.localizedDescription
+                }
+            }
         }
+    }
+    func stopWriter() {
+        writer?.finish()
+        writer = nil
+        writerTask?.cancel()
+        writerTask = nil
     }
     func disconnect() {
         connectionTask?.cancel()
+        connectionTask = nil
         connectionGeneration = UUID()
         resizeTask?.cancel()
         resizeTask = nil
@@ -126,8 +150,7 @@ enum ConnectionState: String {
         listingTask?.cancel()
         listingGeneration = UUID()
         loadingFiles = false
-        writer?.finish()
-        writerTask?.cancel()
+        stopWriter()
         service?.cancel()
         fileConnection?.cancel()
         service = nil
@@ -140,6 +163,15 @@ enum ConnectionState: String {
 @MainActor private final class AccessibleTerminalView: TerminalView {
     var onFocus: (() -> Void)?
     var dropTarget: SessionTabDropTarget?
+    func resetForConnection() {
+        inputContext?.discardMarkedText()
+        unmarkText()
+        selectNone()
+        // Cancel an unfinished escape sequence before RIS. SwiftTerm's RIS retains
+        // the alternate buffer, focus reporting, mouse encoding and cursor visibility.
+        // Clear both screens and home the cursor locally with the old writer detached.
+        feed(text: "\u{18}\u{1b}c\u{1b}[?1049h\u{1b}[?1049l\u{1b}[?1004;1005;1006;1015;1016l\u{1b}[?25h\u{1b}[H")
+    }
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation { dropTarget?.update(sender, in: self) ?? [] }
     override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation { dropTarget?.update(sender, in: self) ?? [] }
     override func draggingExited(_ sender: (any NSDraggingInfo)?) { dropTarget?.hover(nil, bounds.size) }
