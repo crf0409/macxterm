@@ -1,0 +1,29 @@
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+Config/Local.xcconfig
+IntegrationTest/fixtures/
+IntegrationTest/.env
+# Generated dependency headers, binaries and machine-specific CMake metadata.
+# Scripts/prepare-dependencies.sh rebuilds them from pinned upstream sources.
+Vendor/FreeRDP/include/
+Vendor/FreeRDP/lib/
+*.app/
+*.zip
+*.dmg
+*.p12
+*.pfx
+*.mobileprovision
+.env
+.env.*
+*.log
+*.key
+*.pem
+id_rsa*
+id_ed25519*
+configuration.json
+known_hosts
+authorized_keys

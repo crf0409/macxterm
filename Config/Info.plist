@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>
+<key>CFBundleDevelopmentRegion</key><string>zh-Hans</string>
+<key>CFBundleDisplayName</key><string>MacXTerm</string>
+<key>CFBundleExecutable</key><string>MacXTerm</string>
+<key>CFBundleIconFile</key><string>AppIcon.icns</string>
+<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+<key>CFBundleName</key><string>MacXTerm</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleShortVersionString</key><string>1.0.0</string>
+<key>CFBundleVersion</key><string>3</string>
+<key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
+<key>LSMinimumSystemVersion</key><string>26.0</string>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSLocalNetworkUsageDescription</key><string>用于连接你添加的局域网 SSH 和 XRDP / RDP 主机，以及访问端口转发目标。</string>
+<key>NSHumanReadableCopyright</key><string>MacXTerm contributors</string>
+<key>UTExportedTypeDeclarations</key><array><dict>
+<key>UTTypeIdentifier</key><string>app.macxterm.session-tab</string>
+<key>UTTypeDescription</key><string>MacXTerm Session Tab</string>
+<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+</dict></array>
+</dict></plist>

@@ -1,0 +1,16 @@
+{
+  "version": "3.32.1",
+  "source": "https://github.com/FreeRDP/FreeRDP/tree/3.32.1",
+  "sourceArchiveSHA256": "8803dd26ec9660550252f255cf2d672a785ddd8f544bb475834993e96807c87f",
+  "architectures": [
+    "arm64",
+    "x86_64"
+  ],
+  "minimumMacOS": "26.0",
+  "buildScript": "Scripts/build-rdp-dependency.py",
+  "libraries": {
+    "libfreerdp-client3.a": "8961608ef346bbead4b76e374289f2057c70f9da16a559a1109b136e11865ec9",
+    "libfreerdp3.a": "90fb3c4eb4937944dc9a7fecfee9179d6cb62c5e30cd8d841c7352344c2f7a1b",
+    "libwinpr3.a": "2f4c391956635a5212e7f4b4d81238c5960c8a97d8d7acfa044456f195789c89"
+  }
+}
