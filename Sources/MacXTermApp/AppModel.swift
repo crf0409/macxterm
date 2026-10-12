@@ -410,10 +410,10 @@ import UniformTypeIdentifiers
         guard panel.runModal() == .OK else { return }
         upload(panel.urls, tab: tab)
     }
-    func upload(_ urls: [URL], tab: TerminalSession, policy: CollisionPolicy = .fail) {
+    func upload(_ urls: [URL], tab: TerminalSession, policy: CollisionPolicy = .fail, directory: String? = nil) {
         for url in urls {
             do {
-                let path = try RemotePath.join(tab.directory, url.lastPathComponent)
+                let path = try RemotePath.join(directory ?? tab.directory, url.lastPathComponent)
                 startTransfer(
                     host: tab.host, name: url.lastPathComponent, direction: .upload, localURL: url, remotePath: path,
                     policy: policy)

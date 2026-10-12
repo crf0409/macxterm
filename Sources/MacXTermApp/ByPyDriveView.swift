@@ -146,9 +146,9 @@ struct ByPyDriveView: View {
                             Task { @MainActor in drive.uploadRemote(item) }
                         }
                     } else {
-                        _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { data, _ in
-                            guard let data, let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
-                            Task { @MainActor in drive.uploadLocal([url]) }
+                        Task { @MainActor in
+                            do { drive.uploadLocal([try await LocalFileDrop.fileURL(from: provider)]) }
+                            catch { drive.error = "无法读取拖入的文件地址：\(error.localizedDescription)" }
                         }
                     }
                 }

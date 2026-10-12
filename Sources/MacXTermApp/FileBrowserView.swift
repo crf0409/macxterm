@@ -110,10 +110,13 @@ struct FileBrowserView: View {
         }
         .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget) { providers in
             guard tab.fileService != nil else { return false }
-            for provider in providers {
-                _ = provider.loadObject(ofClass: URL.self) { url, error in
-                    guard let url else { return }
-                    Task { @MainActor in model.upload([url], tab: tab) }
+            let directory = tab.directory
+            Task { @MainActor in
+                do {
+                    let urls = try await LocalFileDrop.fileURLs(from: providers)
+                    model.upload(urls, tab: tab, directory: directory)
+                } catch {
+                    model.errorMessage = "无法读取拖入的文件地址：\(error.localizedDescription)"
                 }
             }
             return true

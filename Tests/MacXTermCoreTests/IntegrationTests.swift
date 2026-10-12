@@ -136,6 +136,24 @@ struct IntegrationTests {
         try await sftp.upload(local, to: path, policy: .replace)
         #expect(try await sftp.read(path + "/中文 a.txt") == data)
     }
+    @Test func binaryDocumentUploadDownloadDoesNotRequireUTF8() async throws {
+        let connection = try await connected()
+        defer { connection.cancel() }
+        let sftp = try await connection.openSFTP()
+        let root = try remoteRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("MOCK_中文 Word 文稿.docx")
+        var bytes = Data([0x50, 0x4b, 0x03, 0x04])
+        for _ in 0..<8192 { bytes.append(contentsOf: [0xff, 0xfe, 0x80, 0x00, 0x01, 0x02, 0x03, 0x04]) }
+        #expect(String(data: bytes, encoding: .utf8) == nil)
+        try bytes.write(to: source)
+        let remote = root.appendingPathComponent("uploaded 中文.docx").path
+        try await sftp.upload(source, to: remote)
+        let destination = root.appendingPathComponent("downloaded 中文.docx")
+        try await sftp.download(remote, to: destination)
+        #expect(try Data(contentsOf: destination) == bytes)
+        #expect(try await sftp.attributes(remote)?.size == UInt64(bytes.count))
+    }
     @Test func atomicReplacementDetectsContentConflictAndPreservesPermissions() async throws {
         let connection = try await connected()
         defer { connection.cancel() }

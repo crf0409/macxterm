@@ -156,3 +156,13 @@ SSH 终端右键调用 SwiftTerm 的粘贴入口，保留 UTF-8 与 bracketed pa
 - 使用同一 Release 原生可执行文件和独立 bundle ID，通过验证专用 MOCK PCS bridge 跑通原生窗口内的本机文件上传、列表刷新、复制中文带空格文件名、选择目录下载。上传来源和下载目录均经系统面板授权；下载结果与原文件逐字节及 SHA-256 一致，记录为 `.build/bypy-validation/gui-report.json`。验证数据为 MOCK，未调用真实百度服务。已关闭并删除该临时应用。
 - 实际拖动手势尚未完成完整人工矩阵；本轮原生 NSItemProvider 文件 URL 解码、上传队列与服务器来源校验有自动测试。真实百度账号 OAuth、服务器到网盘的实际传输、GB/TB 文件持续上传、上游限额/限速和 Intel 运行环境尚未验收。当前网盘任务仅保留在本次应用运行期间，取消后保留的部分文件由 bypy 的后续操作处理。
 - 已将 Release 1.0.0 (5) 安装到 `/Applications/MacXTerm.app`。安装后可执行文件、Info.plist、图标、bridge 和依赖归档与构建产物一致，深度/严格签名检查通过；配置文件逐字节一致。按照用户选择保留原运行进程及 SSH 会话，没有退出或启动正式应用，新功能在下次手动重启后生效。旧版安装文件已删除，没有保留备份；安装报告为 `.build/bypy-validation/install-report.json`。
+
+## 普通 SFTP 上传与下载（2026-10-12，build 6）
+
+用户报告当前 Word 文件下载及上传按钮没有响应，拖拽上传出现 UTF-8 提示。本轮在仍运行的旧进程中点击两个按钮，确认系统文件选择框没有出现。系统日志显示 open/save panel 的 `SecCodeCopyGuestWithAttributes` 返回 100002，随后主应用报告 `Unable to display open panel` 与 `Connection interrupted`。此前保留旧进程却替换并删除其安装文件的方式只验证了会话存活，没有验证沙盒文件选择服务；不能把它视为完整的运行中更新验收。
+
+- 新增 `Scripts/install-app.py`。应用仍运行时拒绝安装；签名校验和暂存复制后再次检查进程，确认退出才原子替换，并在最终签名验证失败时恢复原应用。4 项安装器文件系统测试通过，覆盖开始时仍运行、复制期间重新启动、正常替换无残留备份，以及失败回滚。对当前正式应用实际调用安装器，确认被拒绝，安装文件与进程均保留。
+- SFTP 与网盘的本机拖拽共用标准 `public.file-url` 数据读取器，读取文件地址后才交给传输服务；不把 Word、ZIP 等内容解码为 UTF-8。错误会显示在界面，SFTP 目标目录使用松开拖拽时的目录快照。
+- 新增真实 OpenSSH 二进制上传/下载回归，源内容不能解码为 UTF-8，使用中文带空格的 `.docx` 名称，往返字节及远端大小一致。原生 NSItemProvider 测试覆盖二进制文档、Finder 风格文件地址、多文件/目录、中文/空格/引号及拒绝网页地址。
+- 最终 `python3 Scripts/integration.py` 登记 75 个测试函数、12 个 suite，73 个实际执行并通过；Docker/Linux 专用项和未提供实时 XRDP 环境的帧测试跳过。日志为 `.build/sftp-validation/regression.log`。
+- Release 1.0.0 (6) 已构建，通过深度/严格签名校验；ZIP 的 CRC 及内置可执行文件一致性通过。日志为 `.build/sftp-validation/release-build.log`。已准备独立沙盒应用和回环 SSH 夹具，原生交互验证因 Mac 锁屏暂未完成；正式应用仍运行旧进程，尚未安装或重启修复包。后续结果记录在 `.build/sftp-validation/report.json`。

@@ -21,7 +21,9 @@ open .build/artifacts/MacXTerm.app
 
 生成的应用已启用 App Sandbox，使用本机 ad-hoc 签名供开发运行。实际输出为 `.build/artifacts/MacXTerm.app`。发布签名与商店归档请参阅 [归档说明](Docs/ARCHIVING.md)。
 
-构建脚本通过 `Scripts/build-app-icon.sh` 将蓝紫色 `Assets/Brand/macxterm-logo-v1.png` 生成包含标准与 Retina 尺寸的 `AppIcon.icns`；SwiftPM 应用打包和生成的 Xcode 工程都包含此图标。可以将生成的应用复制到 `/Applications/MacXTerm.app`。
+构建脚本通过 `Scripts/build-app-icon.sh` 将蓝紫色 `Assets/Brand/macxterm-logo-v1.png` 生成包含标准与 Retina 尺寸的 `AppIcon.icns`；SwiftPM 应用打包和生成的 Xcode 工程都包含此图标。退出正式应用后，运行 `python3 Scripts/install-app.py` 安装到 `/Applications/MacXTerm.app`。安装器会拒绝替换仍在运行的应用，并在签名检查失败时恢复原安装文件。
+
+更新安装文件前必须退出 MacXTerm；运行期间替换并删除旧应用，即使 SSH 会话暂时保留，macOS 沙盒文件选择服务也可能无法验证旧进程，导致上传、下载选择框打不开。需要保留会话时先构建新版，等任务结束并退出后再安装。
 
 在仅有 Command Line Tools 的环境中，若已安装 macOS 26.5 SDK，脚本会选择该 SDK 与 SwiftPM native 构建器，兼容开发验证环境中的 CLT 27 SwiftUI 宏插件限制。完整 Xcode 环境请先执行 `./Scripts/prepare-dependencies.sh`，再打开 `MacXTerm.xcodeproj`，选择 MacXTerm Scheme。最低系统版本为 macOS 26.0。
 
@@ -78,6 +80,8 @@ ssh -i ~/.ssh/id_ed25519 -N \
 
 普通上传遇到重名会保留已有文件并报告错误，“重试”会明确确认替换。同名目录合并，不删除目录中无关文件。远程编辑结束后，本地副本继续保留；再次打开会创建新的工作副本。
 
+普通 SFTP 上传和下载按二进制字节传输，支持 Word、PDF、ZIP 等文件，不要求内容是 UTF-8。拖入上传只读取文件地址；双击“用关联编辑器打开”的同步编辑功能仍仅接受 UTF-8 / UTF-16 文本。
+
 ## 百度网盘与大文件
 
 打开“百度网盘”窗口时自动加载文件列表。首次使用可打开百度授权页面，把授权码填写到应用的安全输入框；已有本机 bypy 安装也可选择“导入已有 bypy.json”。本机令牌保存到 Keychain。服务器使用独立 SSH 连接和自己的私有授权目录，存在 `~/.bypy/bypy.json` 时先验证并复用，不自动复制本机令牌。
@@ -115,6 +119,7 @@ SSH 句柄各自由专用串行执行队列管理。终端、文件浏览、传�
 python3 Scripts/integration.py            # 启动独立的本机 OpenSSH 测试服务并清理
 python3 Scripts/integration.py --docker   # 可选：Linux OpenSSH 容器（需要 Docker）
 .build/bypy/python/bin/python3 Tests/ByPyBridgeTests.py  # 无真实账号的 MOCK PCS 边界测试
+python3 Tests/InstallAppTests.py           # 安装器保留运行版、原子替换及失败回滚
 ```
 
 脚本仅使用回环测试端口 22337–22341，生成专用测试密钥，结束后停止自己启动的服务，不修改系统 SSH 配置。容器镜像中的固定密码只用于该隔离测试夹具，不得复用于真实主机。实测结果和未覆盖项目见 [验收记录](Docs/VALIDATION.md)。
