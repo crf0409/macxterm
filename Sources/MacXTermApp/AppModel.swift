@@ -26,6 +26,9 @@ import UniformTypeIdentifiers
     var transfers = [TransferTask]()
     var edits = [RemoteEditSession]()
     private var openingFiles = Set<String>()
+    @ObservationIgnored private var previewTask: Task<Void, Never>?
+    @ObservationIgnored private var previewGeneration = UUID()
+    @ObservationIgnored private let previewController = RemotePreviewController()
     var tunnelStates: [UUID: String] = [:]
     var tunnelErrors: [UUID: String] = [:]
     @ObservationIgnored private var configurationStore: JSONStore<AppConfiguration>?
@@ -80,7 +83,7 @@ import UniformTypeIdentifiers
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
     var busy: Bool {
-        bypy.busy || sessions.contains { $0.state == .connected || $0.state == .connecting }
+        bypy.busy || previewTask != nil || sessions.contains { $0.state == .connected || $0.state == .connecting }
             || desktopSessions.contains { $0.state == .connected || $0.state == .connecting }
             || transfers.contains { $0.state == .running || $0.state == .queued } || !tunnelTasks.isEmpty
             || !edits.isEmpty
@@ -395,10 +398,37 @@ import UniformTypeIdentifiers
         }
     }
     func activateFile(_ entry: RemoteEntry, tab: TerminalSession) {
-        if entry.attributes.isDirectory {
-            loadDirectory(tab, path: entry.path)
-        } else {
-            editFile(entry, host: tab.host)
+        switch RemoteFileOpenAction.action(for: entry) {
+        case .directory: loadDirectory(tab, path: entry.path)
+        case .documentPreview: previewFile(entry, host: tab.host)
+        case .textEditor: editFile(entry, host: tab.host)
+        }
+    }
+    func previewFile(_ entry: RemoteEntry, host: HostProfile) {
+        do { try RemoteDocumentPreview.validate(entry) }
+        catch { errorMessage = error.localizedDescription; return }
+        let openingID = host.id.uuidString + ":" + entry.path
+        guard openingFiles.insert(openingID).inserted else { return }
+        previewTask?.cancel()
+        let generation = UUID(); previewGeneration = generation
+        previewTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                openingFiles.remove(openingID)
+                if previewGeneration == generation { previewTask = nil }
+            }
+            do {
+                let connection = try await authenticated(host)
+                defer { connection.cancel() }
+                let sftp = try await connection.openSFTP()
+                let root = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                    .appendingPathComponent("MacXTerm/DocumentPreviews", isDirectory: true)
+                let document = try await RemoteDocumentPreview.stage(entry, using: sftp, root: root)
+                guard !Task.isCancelled, previewGeneration == generation else { document.discard(); return }
+                try previewController.show(document)
+            } catch {
+                if !Task.isCancelled && !isShuttingDown { errorMessage = error.localizedDescription }
+            }
         }
     }
     func chooseUpload(tab: TerminalSession) {
@@ -773,6 +803,9 @@ import UniformTypeIdentifiers
     }
     func shutdown() async {
         isShuttingDown = true
+        previewTask?.cancel()
+        await previewTask?.value
+        previewController.close()
         bypy.stop()
         for tab in sessions { tab.disconnect() }
         for tab in desktopSessions { tab.disconnect(); tab.discardPassword() }

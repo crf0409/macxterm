@@ -154,6 +154,32 @@ struct IntegrationTests {
         #expect(try Data(contentsOf: destination) == bytes)
         #expect(try await sftp.attributes(remote)?.size == UInt64(bytes.count))
     }
+    @Test func stagesBinaryPreviewWithoutTextDecodingAndCleansPrivateCopy() async throws {
+        let connection = try await connected()
+        defer { connection.cancel() }
+        let sftp = try await connection.openSFTP()
+        let root = try remoteRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("MOCK_中文 Word 文稿.docx")
+        let binary = Data([0x50, 0x4b, 0x03, 0x04, 0xff, 0xfe, 0x80, 0x00])
+        try binary.write(to: source)
+        let entry = RemoteEntry(path: source.path, name: source.lastPathComponent,
+            attributes: try #require(await sftp.attributes(source.path)))
+        let previewRoot = root.appendingPathComponent("previews")
+        let document = try await RemoteDocumentPreview.stage(entry, using: sftp, root: previewRoot)
+        #expect(document.localURL.lastPathComponent == source.lastPathComponent)
+        #expect(try Data(contentsOf: document.localURL) == binary)
+        #expect(try FileManager.default.attributesOfItem(atPath: document.localURL.path)[.posixPermissions] as? Int == 0o600)
+        document.discard()
+        #expect(try FileManager.default.contentsOfDirectory(atPath: previewRoot.path).isEmpty)
+        #expect(try Data(contentsOf: source) == binary)
+        let limited = root.appendingPathComponent("too-large.docx")
+        await #expect(throws: MacXError.self) { try await sftp.download(source.path, to: limited, maximumBytes: 4) }
+        #expect(!FileManager.default.fileExists(atPath: limited.path))
+        let missing = RemoteEntry(path: source.path + ".missing", name: source.lastPathComponent, attributes: entry.attributes)
+        await #expect(throws: MacXError.self) { _ = try await RemoteDocumentPreview.stage(missing, using: sftp, root: previewRoot) }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: previewRoot.path).isEmpty)
+    }
     @Test func atomicReplacementDetectsContentConflictAndPreservesPermissions() async throws {
         let connection = try await connected()
         defer { connection.cancel() }

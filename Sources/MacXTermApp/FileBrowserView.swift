@@ -71,7 +71,7 @@ struct FileBrowserView: View {
                         }
                         Spacer(minLength: 0)
                         if model.isOpeningFile(entry, host: tab.host) {
-                            ProgressView().controlSize(.mini).help("正在打开编辑器…")
+                            ProgressView().controlSize(.mini).help("正在打开文件…")
                         }
                     }.padding(.vertical, 3).tag(entry.path).contentShape(Rectangle())
                         .onDrag {
@@ -87,7 +87,10 @@ struct FileBrowserView: View {
                             if entry.attributes.isDirectory {
                                 Button("打开目录") { model.loadDirectory(tab, path: entry.path) }
                             } else {
-                                Button("用关联编辑器打开") { model.editFile(entry, host: tab.host) }
+                                Button("在线预览") { model.previewFile(entry, host: tab.host) }.disabled(entry.attributes.isSymbolicLink)
+                                if RemoteFileOpenAction.action(for: entry) == .textEditor {
+                                    Button("用关联编辑器打开") { model.editFile(entry, host: tab.host) }
+                                }
                             }
                             Button("下载") { model.download(entry, host: tab.host) }.disabled(
                                 entry.attributes.isSymbolicLink)
@@ -98,9 +101,11 @@ struct FileBrowserView: View {
                         }
                 }
             }.listStyle(.sidebar)
-            Text(dropTarget ? "松开以上传到当前目录" : "拖入文件上传 · 双击打开关联编辑器").font(.system(size: 10)).foregroundStyle(
+                .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget, perform: acceptUploadDrop)
+            Text(dropTarget ? "松开以上传到当前目录" : "拖入文件上传 · 双击预览文档或编辑文本").font(.system(size: 10)).foregroundStyle(
                 dropTarget ? Color.accentColor : Color.secondary
-            ).padding(10).frame(maxWidth: .infinity)
+            ).padding(10).frame(maxWidth: .infinity).contentShape(Rectangle())
+                .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget, perform: acceptUploadDrop)
         }
         .overlay {
             if dropTarget {
@@ -108,20 +113,21 @@ struct FileBrowserView: View {
                     false)
             }
         }
-        .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget) { providers in
-            guard tab.fileService != nil else { return false }
-            let directory = tab.directory
-            Task { @MainActor in
-                do {
-                    let urls = try await LocalFileDrop.fileURLs(from: providers)
-                    model.upload(urls, tab: tab, directory: directory)
-                } catch {
-                    model.errorMessage = "无法读取拖入的文件地址：\(error.localizedDescription)"
-                }
-            }
-            return true
-        }
+        .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget, perform: acceptUploadDrop)
         .onAppear { pathInput = tab.directory }
         .onChange(of: tab.directory) { _, path in pathInput = path }
+    }
+    private func acceptUploadDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard tab.fileService != nil else { return false }
+        let directory = tab.directory
+        Task { @MainActor in
+            do {
+                let urls = try await LocalFileDrop.fileURLs(from: providers)
+                model.upload(urls, tab: tab, directory: directory)
+            } catch {
+                model.errorMessage = "无法读取拖入的文件地址：\(error.localizedDescription)"
+            }
+        }
+        return true
     }
 }

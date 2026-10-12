@@ -27,10 +27,11 @@ public final class SFTPService: Sendable {
     }
     public func download(
         _ path: String, to destination: URL, policy: CollisionPolicy = .fail,
+        maximumBytes: UInt64? = nil,
         progress: @escaping TransferProgress = { _, _ in }
     ) async throws {
         try await withTaskCancellationHandler {
-            try await worker.run { w in try Self.downloadSync(w, path, destination, policy, progress) }
+            try await worker.run { w in try Self.downloadSync(w, path, destination, policy, maximumBytes, progress) }
         } onCancel: {
             self.cancel()
         }
@@ -105,6 +106,7 @@ public final class SFTPService: Sendable {
     }
     private static func downloadSync(
         _ w: SSHWorker, _ path: String, _ destination: URL, _ policy: CollisionPolicy,
+        _ maximumBytes: UInt64?,
         _ progress: @escaping TransferProgress
     ) throws {
         guard let attrs = try statSync(w, path) else { throw MacXError.missingFile }
@@ -118,11 +120,14 @@ public final class SFTPService: Sendable {
             try fm.createDirectory(
                 at: destination, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             for entry in try listSync(w, path) where !entry.attributes.isSymbolicLink {
-                try downloadSync(w, entry.path, destination.appendingPathComponent(entry.name), policy, progress)
+                try downloadSync(w, entry.path, destination.appendingPathComponent(entry.name), policy, maximumBytes, progress)
             }
             return
         }
         guard attrs.isRegular else { throw MacXError.message("不支持传输特殊设备文件。") }
+        if let maximumBytes, attrs.size > maximumBytes {
+            throw MacXError.message("文件超出此次下载的大小限制，请使用普通下载功能。")
+        }
         let exists = fm.fileExists(atPath: destination.path)
         if exists && policy == .skip { return }
         if exists && policy == .fail { throw MacXError.message("本地已有同名文件：\(destination.lastPathComponent)") }
@@ -144,6 +149,9 @@ public final class SFTPService: Sendable {
             let n = mx_file_read(w.handle, file, &bytes, bytes.count)
             guard n >= 0 else { throw w.error() }
             if n == 0 { break }
+            if let maximumBytes, UInt64(written) + UInt64(n) > maximumBytes {
+                throw MacXError.message("文件超出此次下载的大小限制，请使用普通下载功能。")
+            }
             try output.write(contentsOf: Data(bytes.prefix(n)))
             written += Int64(n)
             progress(written, Int64(clamping: attrs.size))

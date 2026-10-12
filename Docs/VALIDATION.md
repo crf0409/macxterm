@@ -165,4 +165,17 @@ SSH 终端右键调用 SwiftTerm 的粘贴入口，保留 UTF-8 与 bracketed pa
 - SFTP 与网盘的本机拖拽共用标准 `public.file-url` 数据读取器，读取文件地址后才交给传输服务；不把 Word、ZIP 等内容解码为 UTF-8。错误会显示在界面，SFTP 目标目录使用松开拖拽时的目录快照。
 - 新增真实 OpenSSH 二进制上传/下载回归，源内容不能解码为 UTF-8，使用中文带空格的 `.docx` 名称，往返字节及远端大小一致。原生 NSItemProvider 测试覆盖二进制文档、Finder 风格文件地址、多文件/目录、中文/空格/引号及拒绝网页地址。
 - 最终 `python3 Scripts/integration.py` 登记 75 个测试函数、12 个 suite，73 个实际执行并通过；Docker/Linux 专用项和未提供实时 XRDP 环境的帧测试跳过。日志为 `.build/sftp-validation/regression.log`。
-- Release 1.0.0 (6) 已构建，通过深度/严格签名校验；ZIP 的 CRC 及内置可执行文件一致性通过。日志为 `.build/sftp-validation/release-build.log`。已准备独立沙盒应用和回环 SSH 夹具，原生交互验证因 Mac 锁屏暂未完成；正式应用仍运行旧进程，尚未安装或重启修复包。后续结果记录在 `.build/sftp-validation/report.json`。
+- Release 1.0.0 (6) 构建成功，通过深度/严格签名校验；ZIP 的 CRC 及内置可执行文件一致性通过。日志为 `.build/sftp-validation/release-build.log`。Mac 解锁后，在独立沙盒应用中实际点击下载按钮，系统面板选择目录，中文 `.docx` 下载完成；上传按钮也能打开面板，非 UTF-8 二进制文件上传完成，两项传输均核对字节和 SHA-256 一致。输入与目标均为明确标记的 MOCK 文件及回环 SSH 夹具，没有修改用户的业务服务器。
+- 跨 Finder 窗口的自动拖动尝试未生成传输任务，因此不能将该轮真实 Finder 拖拽记为通过。文件 URL 的原生 NSItemProvider 解码与队列已有自动测试；build 7 将接收器直接挂到文件列表和底部上传区域，原生手势仍需补验。该轮验证时正式应用仍运行旧进程，安装后的结果见 build 7 记录。
+
+## Word 双击在线预览（2026-10-12，build 7）
+
+用户补充指出双击 Word 会显示“不是支持的 UTF-8/UTF-16 文本”。原入口统一调用文本编辑协调器。本轮将 Word/PDF 双击路由到独立的 Quick Look 只读窗口，其他文本保留关联编辑器和原有同步流程；右键菜单也提供“在线预览”。
+
+- 预览通过独立 SSH/SFTP 连接取得保留扩展名的私有副本，不进行文本解码、不回写远端。UUID 目录权限为 0700、文件 0600，关闭窗口和退出应用时清理；失败及取消也清理副本。100 MB 预览上限同时检查入口元数据和实际下载字节，普通 SFTP 下载不受这个上限限制。
+- 新增文档打开路由、文件类型/大小/路径检查，以及真实 OpenSSH 二进制预览副本、权限、清理和失败处理测试。最终回归登记 78 个测试函数、13 个 suite，76 个实际执行并通过，Docker/Linux 专用项与实时 XRDP 帧项跳过。日志为 `.build/sftp-validation/preview-final-regression.log`。
+- Release 1.0.0 (7) 构建成功，日志为 `.build/sftp-validation/preview-release-build.log`。该轮 Release 的 Word 预览在独立 bundle ID 的沙盒窗口中实际双击 `.docx`，显示中文正文；另一个三页 MOCK 文档的三段页面内容、中文/英文及表格数据均出现在预览中，滚动到第三段页面内容成功。关闭预览后确认缓存目录没有残留 `.docx`，源文档保持不变。此项验证了文档内容查看，没有验收所有 Word 方程、字体和分页样式的精确还原，也没有实现 Word 编辑回传。
+- 用户明确授权退出并重启后，确认旧正式进程结束，再通过 `Scripts/install-app.py` 安装到 `/Applications/MacXTerm.app`。已启动正式应用，“关于”显示 1.0.0 (7)；主机配置、编辑恢复记录及传输记录的安装前后 SHA-256 完全一致。安装后的可执行文件、Info.plist 和图标与最终 Release 产物一致，通过深度/严格签名校验，临时安装目录已清理，没有保留旧版本备份。
+- 用户在 macOS 钥匙串系统窗口完成授权后，正式安装版使用原来保存的凭据重新连接既有服务器。实际 Word 文稿通过下载按钮和系统目录面板下载成功，大小 1,038,037 字节，DOCX ZIP CRC、`word/document.xml` 结构检查通过；双击原文件显示中英文正文和图片，滚动到后续章节成功。预览的私有副本 SHA-256 与下载文件一致，关闭窗口后确认清理副本。正式版上传按钮也能打开系统文件面板，本次取消选择；完整二进制上传的字节核对在隔离的回环 SSH 夹具中完成。
+- 实际论文 Word 预览中部分公式显示为空白，因此不将系统 Quick Look 验收为 Word 的完整排版引擎。同目录 PDF 在正式版中加载 16 页，页间滚动、公式和双栏版式均实际显示；精确排版建议预览 PDF 或下载后使用 Word。
+- 文件列表及底部上传区域直接接收 Finder 文件地址。最终包的隔离沙盒窗口再次进行跨 Finder 自动拖动，仍未生成传输任务；该自动化结果不能证明实际 Finder 拖拽已通过，手动手势验证仍待补充。详细状态保存在本机忽略目录 `.build/sftp-validation/report.json`。
