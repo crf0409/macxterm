@@ -3,6 +3,13 @@ import MacXTermCore
 import UniformTypeIdentifiers
 
 @MainActor enum LocalFileDrop {
+    static func fileURLs(from pasteboard: NSPasteboard) throws -> [URL] {
+        guard let urls = pasteboard.readObjects(forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]) as? [NSURL], !urls.isEmpty else {
+            throw MacXError.message("未能读取拖入的本机文件地址，请用上传按钮重新选择。")
+        }
+        return urls.map { $0 as URL }
+    }
     static func fileURL(from provider: NSItemProvider) async throws -> URL {
         guard provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) else {
             throw MacXError.message("请拖入本机文件或文件夹。")

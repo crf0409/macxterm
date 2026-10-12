@@ -5,6 +5,16 @@ import UniformTypeIdentifiers
 @testable import MacXTermApp
 
 @MainActor @Suite(.serialized) struct LocalFileDropTests {
+    @Test func nativePasteboardPreservesFileURLsAndRejectsWebURLs() throws {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        let urls = [URL(fileURLWithPath: "/tmp/MOCK_中文 space's.zip"), URL(fileURLWithPath: "/tmp/MOCK_文件夹", isDirectory: true)]
+        #expect(board.writeObjects(urls.map { $0 as NSURL }))
+        #expect(try LocalFileDrop.fileURLs(from: board) == urls)
+        board.clearContents()
+        #expect(board.writeObjects([try #require(NSURL(string: "https://example.com/file.docx"))]))
+        #expect(throws: (any Error).self) { _ = try LocalFileDrop.fileURLs(from: board) }
+    }
     @Test func binaryDocumentsUseOnlyTheirFileURLRepresentation() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

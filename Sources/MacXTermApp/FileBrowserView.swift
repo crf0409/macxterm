@@ -1,7 +1,6 @@
 import AppKit
 import MacXTermCore
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct FileBrowserView: View {
     @Environment(AppModel.self) private var model
@@ -9,6 +8,14 @@ struct FileBrowserView: View {
     @State private var pathInput = ""
     @State private var dropTarget = false
     var body: some View {
+        NativeFileDropTarget(content: browserContent, enabled: tab.fileService != nil,
+            isTargeted: $dropTarget, onDrop: acceptUploadDrop,
+            onError: { model.errorMessage = "无法读取拖入的文件地址：\($0.localizedDescription)" })
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear { pathInput = tab.directory }
+            .onChange(of: tab.directory) { _, path in pathInput = path }
+    }
+    private var browserContent: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Button {
@@ -101,11 +108,9 @@ struct FileBrowserView: View {
                         }
                 }
             }.listStyle(.sidebar)
-                .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget, perform: acceptUploadDrop)
             Text(dropTarget ? "松开以上传到当前目录" : "拖入文件上传 · 双击预览文档或编辑文本").font(.system(size: 10)).foregroundStyle(
                 dropTarget ? Color.accentColor : Color.secondary
             ).padding(10).frame(maxWidth: .infinity).contentShape(Rectangle())
-                .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget, perform: acceptUploadDrop)
         }
         .overlay {
             if dropTarget {
@@ -113,21 +118,10 @@ struct FileBrowserView: View {
                     false)
             }
         }
-        .onDrop(of: [UTType.fileURL], isTargeted: $dropTarget, perform: acceptUploadDrop)
-        .onAppear { pathInput = tab.directory }
-        .onChange(of: tab.directory) { _, path in pathInput = path }
     }
-    private func acceptUploadDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard tab.fileService != nil else { return false }
+    private func acceptUploadDrop(_ urls: [URL]) {
+        guard tab.fileService != nil else { return }
         let directory = tab.directory
-        Task { @MainActor in
-            do {
-                let urls = try await LocalFileDrop.fileURLs(from: providers)
-                model.upload(urls, tab: tab, directory: directory)
-            } catch {
-                model.errorMessage = "无法读取拖入的文件地址：\(error.localizedDescription)"
-            }
-        }
-        return true
+        model.upload(urls, tab: tab, directory: directory)
     }
 }
