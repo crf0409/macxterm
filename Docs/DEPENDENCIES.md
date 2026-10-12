@@ -19,3 +19,11 @@ FreeRDP / WinPR 从锁定的官方源码本地生成 arm64 / x86_64 通用静态
 服务器状态口径以 [Linux `/proc` 文档](https://www.kernel.org/doc/html/latest/filesystems/proc.html) 为准：CPU 为两次计数差，扣除 idle/iowait、不重复累加 guest；内存优先采用 MemAvailable；网络按各接口字节计数差显示；磁盘来自 `df -Pk`。内存/磁盘单位在界面使用二进制容量格式化。
 
 MacXTerm 自有代码采用仓库根目录的 MIT 许可证；第三方源码及二进制仍遵循上游许可。`swift-argument-parser` 采用 Apache 2.0；其许可全文也包含在应用的 ThirdPartyNotices 中。
+
+## bypy 运行环境
+
+bypy 1.8.9 来源为 [houtianze/bypy](https://github.com/houtianze/bypy)，采用 MIT。`Vendor/ByPy/requirements.lock` 固定 PyPI wheel 版本及 SHA-256，包括 requests、requests-toolbelt、multiprocess/dill、urllib3、idna、charset-normalizer 和 certifi。安装仅在 `.build/bypy` 中进行；服务器复用纯 Python 包归档，使用系统 Python 3.9+，不安装服务器的系统包。
+
+本机运行环境使用官方 [python-build-standalone](https://github.com/astral-sh/python-build-standalone) 的 CPython 3.12.15 / 20261009 arm64 或 x86_64 install-only 包，来源和 SHA-256 位于 `Vendor/ByPy/manifest.json`。`Scripts/prepare-bypy-runtime.py` 校验归档并准备包，`Scripts/bundle-bypy-runtime.py` 放入应用 Resources/ByPy；本机 GUI 验收覆盖 arm64。Python 及包的完整许可证随运行环境保留，bypy MIT 许可同时写入应用 ThirdPartyNotices。
+
+helper 只签入 `com.apple.security.app-sandbox` 与 `com.apple.security.inherit`，保留主应用沙盒。上游可选 multiprocess 的命名信号量无法在沙盒中创建，因此使用官方单进程回退并以私有目录的文件锁防止同时改写缓存。HTTP 适配器在请求边界强制使用 certifi 校验 TLS，以覆盖上游构造器中重写为 false 的默认值；上传/下载和授权使用相同边界。授权码及本机 token 通过标准输入/私有管道传递，不出现在命令行参数或普通配置中。

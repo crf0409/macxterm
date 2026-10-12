@@ -13,7 +13,7 @@ for p in sorted((root/'Sources/MacXTermApp').rglob('*')):
  ref=add(rel,'PBXFileReference',lastKnownFileType=kind,path=rel,sourceTree='<group>'); refs.append(ref)
  bf=add(rel+'-build','PBXBuildFile',fileRef=ref)
  (sources if p.suffix=='.swift' else resources).append(bf)
-for name in ['Base.xcconfig','Info.plist','MacXTerm.entitlements']:
+for name in ['Base.xcconfig','Info.plist','MacXTerm.entitlements','ByPyHelper.entitlements']:
  rel='Config/'+name; refs.append(add(rel,'PBXFileReference',lastKnownFileType='text.xcconfig' if name.endswith('xcconfig') else 'text.plist.xml',path=rel,sourceTree='<group>'))
 product=add('product','PBXFileReference',explicitFileType='wrapper.application',path='MacXTerm.app',sourceTree='BUILT_PRODUCTS_DIR',includeInIndex=0)
 products=add('products','PBXGroup',children=[product],name='Products',sourceTree='<group>')
@@ -27,6 +27,10 @@ for dep in [core,term]: frameworks.append(add(dep+'-build','PBXBuildFile',produc
 sourcesPhase=add('sources','PBXSourcesBuildPhase',buildActionMask=2147483647,files=sources,runOnlyForDeploymentPostprocessing=0)
 resourcePhase=add('resources','PBXResourcesBuildPhase',buildActionMask=2147483647,files=resources,runOnlyForDeploymentPostprocessing=0)
 frameworkPhase=add('frameworks','PBXFrameworksBuildPhase',buildActionMask=2147483647,files=frameworks,runOnlyForDeploymentPostprocessing=0)
+byPyPhase=add('bypy-runtime','PBXShellScriptBuildPhase',buildActionMask=2147483647,files=[],
+    inputPaths=[],outputPaths=[],runOnlyForDeploymentPostprocessing=0,shellPath='/bin/sh',
+    shellScript='python3 "$SRCROOT/Scripts/bundle-bypy-runtime.py" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ByPy"',
+    alwaysOutOfDate=1,name='Bundle bypy runtime')
 def configs(prefix,app=False):
  result=[]
  for config in ['Debug','Release']:
@@ -35,7 +39,7 @@ def configs(prefix,app=False):
   if app: settings['COMBINE_HIDPI_IMAGES']='YES'
   result.append(add(prefix+config,'XCBuildConfiguration',baseConfigurationReference=oid('Config/Base.xcconfig'),buildSettings=settings,name=config))
  return add(prefix+'list','XCConfigurationList',buildConfigurations=result,defaultConfigurationIsVisible=0,defaultConfigurationName='Release')
-target=add('target','PBXNativeTarget',buildConfigurationList=configs('app-',True),buildPhases=[sourcesPhase,frameworkPhase,resourcePhase],buildRules=[],dependencies=[],name='MacXTerm',packageProductDependencies=[core,term],productName='MacXTerm',productReference=product,productType='com.apple.product-type.application')
+target=add('target','PBXNativeTarget',buildConfigurationList=configs('app-',True),buildPhases=[sourcesPhase,frameworkPhase,resourcePhase,byPyPhase],buildRules=[],dependencies=[],name='MacXTerm',packageProductDependencies=[core,term],productName='MacXTerm',productReference=product,productType='com.apple.product-type.application')
 project=add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastUpgradeCheck':'2600'},buildConfigurationList=configs('project-'),compatibilityVersion='Xcode 14.0',developmentRegion='zh-Hans',hasScannedForEncodings=0,knownRegions=['zh-Hans','en','Base'],mainGroup=group,packageReferences=[local,remote],productRefGroup=products,projectDirPath='',projectRoot='',targets=[target])
 def plist(value,depth=0):
  if isinstance(value,dict): return '{\n'+''.join('\t'*(depth+1)+json.dumps(str(k))+ ' = '+plist(v,depth+1)+';\n' for k,v in value.items())+'\t'*depth+'}'

@@ -18,6 +18,8 @@ import UniformTypeIdentifiers
     var taskSection = "transfers"
     var showTunnels = false
     var showPublicKeys = false
+    var showByPy = false
+    @ObservationIgnored lazy var bypy = ByPyDriveModel(app: self)
     let publicKeys = LocalPublicKeysModel()
     var monitoringHost: HostProfile?
     var errorMessage: String?
@@ -78,7 +80,7 @@ import UniformTypeIdentifiers
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
     var busy: Bool {
-        sessions.contains { $0.state == .connected || $0.state == .connecting }
+        bypy.busy || sessions.contains { $0.state == .connected || $0.state == .connecting }
             || desktopSessions.contains { $0.state == .connected || $0.state == .connecting }
             || transfers.contains { $0.state == .running || $0.state == .queued } || !tunnelTasks.isEmpty
             || !edits.isEmpty
@@ -771,6 +773,7 @@ import UniformTypeIdentifiers
     }
     func shutdown() async {
         isShuttingDown = true
+        bypy.stop()
         for tab in sessions { tab.disconnect() }
         for tab in desktopSessions { tab.disconnect(); tab.discardPassword() }
         for task in transferTasks.values { task.cancel() }

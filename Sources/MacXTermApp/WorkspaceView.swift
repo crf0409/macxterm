@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct WorkspaceView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var editingHost: HostProfile?
     @State private var showHostSheet = false
@@ -91,6 +92,9 @@ struct WorkspaceView: View {
                 } label: {
                     Label("本机 SSH 公钥", systemImage: "key.horizontal")
                 }.help("查看并复制本机 SSH 公钥 ⌘⇧K")
+                Button { model.showByPy = true } label: {
+                    Label("百度网盘", systemImage: "externaldrive.badge.icloud")
+                }.help("大文件网盘上传与下载")
                 Button {
                     model.showTransfers.toggle()
                 } label: {
@@ -101,6 +105,9 @@ struct WorkspaceView: View {
         .sheet(isPresented: $showHostSheet) { HostEditor(host: editingHost ?? HostProfile()) }
         .sheet(isPresented: $model.showTunnels) { TunnelManagerView() }
         .sheet(isPresented: $model.showPublicKeys) { LocalPublicKeysView() }
+        .onChange(of: model.showByPy) { _, value in
+            if value { openWindow(id: "bypy"); model.showByPy = false }
+        }
         .sheet(item: $model.editingDesktopHost) { host in RemoteDesktopEditor(host: host) }
         .sheet(item: $model.monitoringHost) { host in
             if let tab = model.active?.host.id == host.id

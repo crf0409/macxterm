@@ -74,6 +74,14 @@ struct FileBrowserView: View {
                             ProgressView().controlSize(.mini).help("正在打开编辑器…")
                         }
                     }.padding(.vertical, 3).tag(entry.path).contentShape(Rectangle())
+                        .onDrag {
+                            let item = RemoteFileDrag(hostID: tab.host.id, path: entry.path, isDirectory: entry.attributes.isDirectory)
+                            let provider = NSItemProvider()
+                            provider.registerDataRepresentation(forTypeIdentifier: RemoteFileDrag.type, visibility: .ownProcess) { completion in
+                                completion(try? JSONEncoder().encode(item), nil); return nil
+                            }
+                            return provider
+                        }
                         .onTapGesture(count: 2) { model.activateFile(entry, tab: tab) }
                         .contextMenu {
                             if entry.attributes.isDirectory {

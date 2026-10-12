@@ -44,6 +44,7 @@ let package = Package(
                 .copy("Resources/PrivacyInfo.xcprivacy"), .process("Resources/Localizable.xcstrings"),
                 .copy("Resources/ThirdPartyNotices.txt"),
                 .copy("Resources/AppIcon.icns"),
+                .copy("Resources/ByPyBridge.py"),
             ]),
         .testTarget(name: "MacXTermCoreTests", dependencies: ["MacXTermCore"]),
         .testTarget(name: "MacXTermAppTests", dependencies: ["MacXTermApp"]),

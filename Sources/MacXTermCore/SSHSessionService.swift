@@ -93,7 +93,8 @@ public final class SSHSessionService: Sendable {
     }
     /// Exec channels share the authenticated SSH transport with the terminal.
     /// Each EAGAIN yields the worker queue so a slow probe cannot block keystrokes.
-    public func execute(_ command: String, maximumBytes: Int = 2 * 1024 * 1024, timeout: Duration = .seconds(5))
+    public func execute(_ command: String, maximumBytes: Int = 2 * 1024 * 1024, timeout: Duration = .seconds(5),
+        standardInput: Data? = nil, onOutput: (@Sendable (Data) -> Void)? = nil, collectOutput: Bool = true)
         async throws -> Data
     {
         let id = UUID()
@@ -106,24 +107,39 @@ public final class SSHSessionService: Sendable {
             }
             let deadline = ContinuousClock.now.advanced(by: timeout)
             var result = Data()
+            var inputOffset = 0
             while true {
                 try Task.checkCancellation()
                 guard ContinuousClock.now < deadline else { throw MacXError.message("读取服务器状态超时。") }
-                let (bytes, done, exitCode) = try await worker.run { w -> (Data, Bool, Int32) in
+                let offset = inputOffset
+                let (bytes, done, exitCode, nextOffset) = try await worker.run { w -> (Data, Bool, Int32, Int) in
                     guard let state = w.commands[id] else { throw MacXError.cancelled }
                     let status = mx_command_step(w.handle, state, command)
                     guard status >= 0 else { throw w.error() }
-                    guard status == 0, let channel = mx_command_channel(state) else { return (Data(), false, 0) }
+                    guard status == 0, let channel = mx_command_channel(state) else { return (Data(), false, 0, offset) }
+                    var nextOffset = offset
+                    if let standardInput, offset < standardInput.count {
+                        let count = try standardInput.withUnsafeBytes { buffer -> Int in
+                            let n = mx_write(w.handle, channel, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
+                            guard n >= 0 else { throw w.error() }
+                            return n
+                        }
+                        nextOffset += count
+                    }
                     var buffer = [UInt8](repeating: 0, count: 32768)
                     let count = mx_read(w.handle, channel, &buffer, buffer.count)
                     guard count != -1 else { throw w.error() }
                     return (
                         count > 0 ? Data(buffer.prefix(count)) : Data(), count <= 0 && mx_eof(channel) != 0,
-                        mx_exit_status(channel)
+                        mx_exit_status(channel), nextOffset
                     )
                 }
-                guard result.count + bytes.count <= maximumBytes else { throw MacXError.message("远端命令输出超出限制。") }
-                result.append(bytes)
+                inputOffset = nextOffset
+                if !bytes.isEmpty { onOutput?(bytes) }
+                if collectOutput {
+                    guard result.count + bytes.count <= maximumBytes else { throw MacXError.message("远端命令输出超出限制。") }
+                    result.append(bytes)
+                }
                 if done {
                     guard exitCode == 0 else {
                         throw MacXError.message("远端命令未成功完成：\(String(decoding:result.suffix(2048),as:UTF8.self))")

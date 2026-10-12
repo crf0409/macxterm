@@ -1,0 +1,16 @@
+{
+  "bypy_version": "1.8.9",
+  "source": "https://github.com/houtianze/bypy",
+  "python_version": "3.12.15",
+  "python_release": "20261009",
+  "python": {
+    "arm64": {
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.12.15%2B20261009-aarch64-apple-darwin-install_only.tar.gz",
+      "sha256": "83dcb04777c798bd95f3687acf9ae84b09860272ee6bdfb05be8bcf9447f75b8"
+    },
+    "x86_64": {
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.12.15%2B20261009-x86_64-apple-darwin-install_only.tar.gz",
+      "sha256": "4c84ef5abe4bc145646175fce9b881936d60126b9a3f9a24c6308e2d035ca5c6"
+    }
+  }
+}

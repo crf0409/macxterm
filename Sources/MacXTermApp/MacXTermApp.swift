@@ -34,6 +34,7 @@ import SwiftUI
                 ).disabled(model.active == nil)
                 Button("端口转发…") { model.showTunnels = true }.keyboardShortcut("t", modifiers: [.command, .shift])
                 Button("传输与编辑") { model.showTransfers.toggle() }.keyboardShortcut("j", modifiers: [.command])
+                Button("百度网盘…") { model.showByPy = true }.keyboardShortcut("b", modifiers: [.command, .shift])
                 Divider()
                 Button("左右分屏") { model.splitWorkspace(.horizontal) }
                     .keyboardShortcut("d", modifiers: [.command, .shift]).disabled(model.layout.tabCount < 2)
@@ -49,6 +50,9 @@ import SwiftUI
                 ).disabled(model.activeHost == nil)
             }
         }
+        Window("百度网盘 · 大文件传输", id: "bypy") {
+            ByPyDriveView(drive: model.bypy).environment(model)
+        }.defaultSize(width: 1040, height: 760).windowResizability(.contentMinSize)
         Settings { SettingsView().environment(model) }
     }
 }

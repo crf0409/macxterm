@@ -143,3 +143,16 @@ SSH 终端右键调用 SwiftTerm 的粘贴入口，保留 UTF-8 与 bracketed pa
 - 最终 Release 在独立沙盒应用中通过原生连接菜单重连验证。新登录画面从左上角开始，旧 TUI 内容已清空；12 秒监测期间拖选及切换焦点，远端实际收到 0 字节异常输入，中文命令执行成功。验证包与最终 Release 的 41 个 Mach-O 代码/数据 section 内容一致，差异仅来自应用标识与重新签名。
 - Release 1.0.0 (4) 构建成功，通过深度/严格 codesign 校验；安装与归档结果记录在 `.build/reconnect-validation/install-report.json`。此次修改仅涉及 SSH 终端连接生命周期，没有重复真实 XRDP 桌面登录。
 - 已替换 `/Applications/MacXTerm.app` 并按用户选择重启，“关于”面板显示 1.0.0 (4)。配置在安装及重启后逐字节一致，原有主机和编辑恢复记录保留；两台已有 SSH 服务器凭据直接复用，受影响服务器再次重连并静置后保持干净的 Shell 提示符。旧版安装包及临时验证应用均已删除。
+
+## bypy 百度网盘大文件（2026-10-12，build 5）
+
+新增独立的“百度网盘 · 大文件传输”窗口，支持 Mac 本机和保存的 SSH 主机。打开或切换执行位置时加载列表，浏览范围为 `/apps/bypy`；可上传、下载文件/目录、复制文件名/相对路径/下载命令，串行执行任务并显示进度、取消和重试。独立窗口允许从服务器文件侧栏拖入项目。
+
+- 最终 `python3 Scripts/integration.py` 登记 72 个测试函数、11 个 suite，70 个实际执行并通过；Docker/Linux 专用项和未提供实时 XRDP 环境的帧测试跳过。日志为 `.build/bypy-regression.log`。新增项覆盖路径和 Shell 引号、拆包与 UTF-8 NDJSON、9 TB 元数据、真实私有 Python 启动/取消、原生文件 URL 的 NSItemProvider 解码，以及 UI 队列、授权、复制、进度和跨主机拖放拒绝。
+- 在隔离的本机 OpenSSH 服务中验证 exec 标准输入、独立于交互终端的通信、锁定依赖的 SFTP 安装、重复安装复用和服务器 helper 调用。使用临时安装目录，没有向用户的真实 SSH 服务器安装运行环境或授权账号。
+- `.build/bypy/python/bin/python3 Tests/ByPyBridgeTests.py` 的 7 项测试通过，实际调用锁定的 bypy 1.8.9，PCS HTTP 边界替换为明确标记的 MOCK。覆盖 1006 项分页列表、中文/空格/引号、分块上传及下载字节一致性、进度、同名保护、未授权无 API 请求、路径越界拒绝，以及授权失败不保存新令牌。此层不代表真实百度账号验收。
+- Release 构建成功，日志为 `.build/bypy-release-build.log`。安装包内置校验哈希的 CPython 3.12.15 和固定版本纯 Python 依赖，不要求本机安装全局 pip。最终应用通过 `codesign --verify --deep --strict`；Python 可执行文件仅有 `app-sandbox` 与 `inherit` 两项 entitlement，保留应用沙盒。
+- 原生沙盒验证暴露了 bypy 可选 multiprocess 创建命名信号量时的权限错误。改用上游支持的单进程回退，并对每个授权目录使用文件锁，随后生产 bridge 在独立沙盒窗口正常显示首次授权界面。请求边界强制使用 certifi 校验证书，避免上游构造函数覆盖 SSL 设置。
+- 使用同一 Release 原生可执行文件和独立 bundle ID，通过验证专用 MOCK PCS bridge 跑通原生窗口内的本机文件上传、列表刷新、复制中文带空格文件名、选择目录下载。上传来源和下载目录均经系统面板授权；下载结果与原文件逐字节及 SHA-256 一致，记录为 `.build/bypy-validation/gui-report.json`。验证数据为 MOCK，未调用真实百度服务。已关闭并删除该临时应用。
+- 实际拖动手势尚未完成完整人工矩阵；本轮原生 NSItemProvider 文件 URL 解码、上传队列与服务器来源校验有自动测试。真实百度账号 OAuth、服务器到网盘的实际传输、GB/TB 文件持续上传、上游限额/限速和 Intel 运行环境尚未验收。当前网盘任务仅保留在本次应用运行期间，取消后保留的部分文件由 bypy 的后续操作处理。
+- 已将 Release 1.0.0 (5) 安装到 `/Applications/MacXTerm.app`。安装后可执行文件、Info.plist、图标、bridge 和依赖归档与构建产物一致，深度/严格签名检查通过；配置文件逐字节一致。按照用户选择保留原运行进程及 SSH 会话，没有退出或启动正式应用，新功能在下次手动重启后生效。旧版安装文件已删除，没有保留备份；安装报告为 `.build/bypy-validation/install-report.json`。

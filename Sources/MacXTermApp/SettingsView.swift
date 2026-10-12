@@ -47,7 +47,7 @@ struct SettingsView: View {
             }
             Section("关于") {
                 LabeledContent("MacXTerm", value: "1.0.0")
-                Text("SwiftTerm · libssh2 · OpenSSL").font(.caption).foregroundStyle(.secondary)
+                Text("SwiftTerm · libssh2 · OpenSSL · bypy").font(.caption).foregroundStyle(.secondary)
                 Button("查看开源许可") {
                     if let url = Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt") {
                         NSWorkspace.shared.open(url)

@@ -27,3 +27,11 @@ id_ed25519*
 configuration.json
 known_hosts
 authorized_keys
+# bypy authorization and resumable-transfer caches are private runtime state.
+bypy.json
+bypy.setting.json
+bypy.hashcache.json
+bypy.progress.json
+.bypy/
+__pycache__/
+*.py[cod]

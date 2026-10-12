@@ -33,6 +33,7 @@ open .build/artifacts/MacXTerm.app
 - 原生双栏工作区：左侧主机/远程文件，右侧终端，底部传输与编辑任务。
 - **窗口最底部常驻性能栏**：CPU、内存、根磁盘和主要网卡收发速率。CPU、内存、网络每秒更新；磁盘每 30 秒、静态信息连接后读取一次。复用终端的 SSH 连接，底栏和详情共享采样；切到后台暂停，错误指数退避。各指标固定宽度、数字右对齐，单位变化不会挤动相邻项目。点击查看趋势、全部磁盘、网卡、Swap、负载与运行时间。当前监控支持 Linux `/proc`，无需安装代理。设计依据见 [监控实现与性能](Docs/MONITORING.md)。
 - SFTP 目录浏览、隐藏文件、拖入上传、文件选择上传、下载到用户选择的目录。文件夹递归、同名保护、取消、重试，最多 3 个并行任务；不自动遍历符号链接。
+- **百度网盘大文件窗口**：工具栏“百度网盘”或 `⌘⇧B` 打开；选择 Mac 本机或 SSH 主机，自动运行 bypy 列表、浏览 `/apps/bypy`，拖入本机文件/文件夹上传，或从服务器文件侧栏拖入上传。可直接下载所选文件/目录，复制文件名、网盘相对路径及下载命令；显示传输进度、取消和重试。窗口可与服务器文件侧栏同时操作。
 - 外部编辑 UTF-8 / UTF-16 文本（20 MB 上限）：目录和文件双重监听，500 ms 防抖，原子保存兼容，连续保存合并；远端内容哈希冲突检查、同目录临时文件及 POSIX 原子替换，保留 POSIX 模式位。
 - 未完成传输与编辑副本持久保存。重启后手动恢复；传输从头开始。授权失效可重新选择来源或目标；冲突可以保留本地、备份后下载或明确覆盖。
 - 本地转发、远程转发和 SOCKS5 TCP CONNECT（支持远端解析域名）。独立生命周期，不随终端标签关闭而停止；默认回环监听，SOCKS5 限制本机回环。
@@ -77,6 +78,16 @@ ssh -i ~/.ssh/id_ed25519 -N \
 
 普通上传遇到重名会保留已有文件并报告错误，“重试”会明确确认替换。同名目录合并，不删除目录中无关文件。远程编辑结束后，本地副本继续保留；再次打开会创建新的工作副本。
 
+## 百度网盘与大文件
+
+打开“百度网盘”窗口时自动加载文件列表。首次使用可打开百度授权页面，把授权码填写到应用的安全输入框；已有本机 bypy 安装也可选择“导入已有 bypy.json”。本机令牌保存到 Keychain。服务器使用独立 SSH 连接和自己的私有授权目录，存在 `~/.bypy/bypy.json` 时先验证并复用，不自动复制本机令牌。
+
+选择“Mac 本机”时，把 Finder 文件拖到虚线框，或点击“上传”选择文件/文件夹。选择 SSH 主机时，可从该主机的文件侧栏拖入文件，或填写服务器源路径；下载使用单独的“服务器下载目录”。文件在所选位置与网盘之间传输。选中文件后可复制文件名、相对路径或下载命令，例如 `bypy download '训练 数据/model.bin'`；SSH 模式会复制使用同一授权的服务器专用命令。本机复制的通用命令用于已有 bypy CLI 的终端环境，应用内下载无需额外安装 CLI。
+
+bypy 只能访问百度网盘的 `/apps/bypy` 子目录，支持的单文件大小、速度和容量还取决于上游及账号。应用复用 bypy 的分块上传及下载，不把整份文件读入 Swift 内存。网盘任务串行执行；同名项目默认拒绝覆盖，可明确选择“替换同名项目并重试”。取消后部分下载和 bypy 进度缓存保留；当前网盘任务列表仅保留在本次应用运行期间，区别于已有 SFTP 任务的跨启动恢复。
+
+安装包带有独立的 Python/bypy 运行环境。本机不需要系统 pip 或 Python；SSH 主机需要 Python 3.9+，首次选择该主机会在 `~/.local/share/macxterm/bypy` 放入锁定的项目专用依赖，不运行系统级 pip 或修改 Shell 配置。应用保持 App Sandbox，Python helper 继承沙盒；用户选择的文件权限在传输期间保持有效。
+
 ## 源码结构
 
 | 目录 | 内容 |
@@ -86,9 +97,12 @@ ssh -i ~/.ssh/id_ed25519 -N \
 | `Sources/SSHBridge` | 非阻塞 libssh2 C 桥接、BSD socket |
 | `Sources/RDPBridge` | FreeRDP C 桥接、连接工作线程、输入队列与画面快照 |
 | `Vendor/FreeRDP` | FreeRDP 许可证与版本/校验清单；头文件和静态库由锁定源码本地生成 |
+| `Vendor/ByPy` | bypy 许可证、固定 wheel 版本/哈希和内置 Python 校验清单 |
+| `Sources/MacXTermApp/Resources/ByPyBridge.py` | 本机/服务器共用的 bypy 进度与授权通信适配 |
 | `Sources/CLibSSH2` | libssh2 1.11.1 官方标签源码及许可证 |
 | `Tests/MacXTermCoreTests` | Swift Testing 单元与真实 OpenSSH 集成测试 |
-| `Tests/MacXTermAppTests` | 原生终端视图与重连输入回归测试 |
+| `Tests/MacXTermAppTests` | 原生终端、重连输入、网盘界面状态与拖放队列测试 |
+| `Tests/ByPyBridgeTests.py` | 锁定 bypy 的 MOCK PCS 授权、列表与分块传输测试 |
 | `IntegrationTest` | 本地/容器测试服务 |
 | `Config` | 沙盒、Info.plist、签名及归档配置 |
 
@@ -100,6 +114,7 @@ SSH 句柄各自由专用串行执行队列管理。终端、文件浏览、传�
 ./Scripts/test.sh                         # 单元测试；跳过需要服务的集成项
 python3 Scripts/integration.py            # 启动独立的本机 OpenSSH 测试服务并清理
 python3 Scripts/integration.py --docker   # 可选：Linux OpenSSH 容器（需要 Docker）
+.build/bypy/python/bin/python3 Tests/ByPyBridgeTests.py  # 无真实账号的 MOCK PCS 边界测试
 ```
 
 脚本仅使用回环测试端口 22337–22341，生成专用测试密钥，结束后停止自己启动的服务，不修改系统 SSH 配置。容器镜像中的固定密码只用于该隔离测试夹具，不得复用于真实主机。实测结果和未覆盖项目见 [验收记录](Docs/VALIDATION.md)。

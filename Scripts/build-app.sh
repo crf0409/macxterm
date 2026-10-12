@@ -22,6 +22,7 @@ done
 cp Sources/MacXTermApp/Resources/PrivacyInfo.xcprivacy "$app_path/Contents/Resources/"
 cp Sources/MacXTermApp/Resources/ThirdPartyNotices.txt "$app_path/Contents/Resources/"
 cp Sources/MacXTermApp/Resources/AppIcon.icns "$app_path/Contents/Resources/"
+python3 Scripts/bundle-bypy-runtime.py "$app_path/Contents/Resources/ByPy"
 python3 - "$app_path" <<'PY'
 import pathlib,plistlib,sys
 p=pathlib.Path(sys.argv[1])/'Contents/Info.plist'
@@ -29,6 +30,6 @@ with open('Config/Info.plist','rb') as f: data=plistlib.load(f)
 data['CFBundleIdentifier']='app.macxterm.MacXTerm'
 p.write_bytes(plistlib.dumps(data))
 PY
-codesign --force --deep --sign - --entitlements Config/MacXTerm.entitlements "$app_path"
+codesign --force --sign - --entitlements Config/MacXTerm.entitlements "$app_path"
 codesign --verify --deep --strict "$app_path"
 printf 'Built sandboxed application: %s\n' "$app_path"
